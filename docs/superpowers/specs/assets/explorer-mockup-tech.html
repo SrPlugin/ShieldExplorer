@@ -1,0 +1,339 @@
+<title>Explorer Técnico</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@500;600&display=swap">
+<style>
+/* Layout: panel de terminal. Línea de ruta tipo prompt, listado estilo `ls -l` con números de línea relativos, barra de estado tipo editor. */
+:root {
+  --page: #f1f1ee;
+  --bg: #fbfbf9;
+  --bar: #f1f1ee;
+  --border: #d9d9d3;
+  --text: #24292f;
+  --muted: #6a717b;
+  --faint: #9aa0a8;
+  --cursor: #dfeaf9;
+  --accent: #0969da;
+  --on-accent: #ffffff;
+  --c-dir: #0550ae;
+  --c-image: #8250df;
+  --c-code: #116329;
+  --c-doc: #bc4c00;
+  --c-media: #9a6700;
+  --c-archive: #cf222e;
+  --danger: #cf222e;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --ui: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #090c10; --bg: #0d1117; --bar: #161b22; --border: #252b34;
+    --text: #c9d1d9; --muted: #8b949e; --faint: #566070; --cursor: #172338;
+    --accent: #58a6ff; --on-accent: #0d1117;
+    --c-dir: #79b8ff; --c-image: #d2a8ff; --c-code: #7ee2a8; --c-doc: #ffa657;
+    --c-media: #f2cc60; --c-archive: #ff7b72; --danger: #ff7b72;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #090c10; --bg: #0d1117; --bar: #161b22; --border: #252b34;
+  --text: #c9d1d9; --muted: #8b949e; --faint: #566070; --cursor: #172338;
+  --accent: #58a6ff; --on-accent: #0d1117;
+  --c-dir: #79b8ff; --c-image: #d2a8ff; --c-code: #7ee2a8; --c-doc: #ffa657;
+  --c-media: #f2cc60; --c-archive: #ff7b72; --danger: #ff7b72;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--mono); font-size: 12.5px; }
+.wrap { max-width: 1020px; margin-inline: auto; padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; font-family: var(--ui); }
+.top h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.top p { margin: 2px 0 0; color: var(--muted); font-size: 12px; font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg); }
+.seg button { font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--muted); background: none; border: 0; padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+button:focus-visible, .col:focus-visible, .pathline:focus-visible, .list:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.win { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; height: 580px; }
+.pathline { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 38px; background: var(--bar); border-bottom: 1px solid var(--border); cursor: text; }
+.nav { display: flex; gap: 2px; margin-right: 4px; }
+.nav button { font: inherit; font-weight: 500; width: 26px; height: 24px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+.nav button:hover:not(:disabled) { color: var(--text); border-color: var(--border); background: var(--bg); }
+.nav button:disabled { opacity: .35; cursor: default; }
+.prompt { color: var(--accent); font-weight: 700; }
+.crumbs { flex: 1; min-width: 0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+.seg-btn { font: inherit; color: var(--text); background: none; border: 0; padding: 2px 3px; border-radius: 3px; cursor: pointer; }
+.seg-btn:hover { background: var(--cursor); color: var(--accent); }
+.sep { color: var(--faint); }
+.crumbs input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: none; border: 0; outline: 0; caret-color: var(--accent); }
+.keyhint { color: var(--faint); font-size: 11px; white-space: nowrap; }
+
+.head, .row { display: grid; grid-template-columns: 44px 92px 84px 142px minmax(0, 1fr); align-items: center; }
+.head { height: 26px; border-bottom: 1px solid var(--border); color: var(--faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.head > span, .col { padding: 0 8px; }
+.col { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; text-align: left; cursor: pointer; height: 100%; display: flex; align-items: center; gap: 4px; }
+.col:hover { color: var(--text); }
+.col[data-key="size"] { justify-content: flex-end; }
+.col[aria-sort] { color: var(--accent); }
+.col[aria-sort="ascending"]::after { content: "▲"; font-size: 8px; }
+.col[aria-sort="descending"]::after { content: "▼"; font-size: 8px; }
+.list { flex: 1; overflow: auto; outline: 0; padding-block: 2px; }
+.row { height: 24px; position: relative; color: var(--text); }
+.row > * { padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .ln { text-align: right; color: var(--faint); font-variant-numeric: tabular-nums; }
+.row .perm { color: var(--muted); letter-spacing: .02em; }
+.row .size { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.row:hover { background: color-mix(in srgb, var(--cursor) 55%, transparent); }
+.row[aria-selected="true"] { background: var(--cursor); }
+.row[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.row[aria-selected="true"] .ln { color: var(--accent); font-weight: 700; text-align: left; }
+.k-dir { color: var(--c-dir); font-weight: 700; } .k-image { color: var(--c-image); } .k-code { color: var(--c-code); }
+.k-doc { color: var(--c-doc); } .k-media { color: var(--c-media); } .k-archive { color: var(--c-archive); }
+.hidden-file { opacity: .55; }
+.state { padding: 20px 56px; line-height: 1.7; color: var(--muted); }
+.state b { color: var(--danger); font-weight: 700; }
+.state.empty b { color: var(--muted); }
+
+.status { display: flex; align-items: stretch; height: 24px; border-top: 1px solid var(--border); background: var(--bar); font-size: 11.5px; color: var(--muted); }
+.status > * { display: flex; align-items: center; padding: 0 10px; white-space: nowrap; }
+.mode { background: var(--accent); color: var(--on-accent); font-weight: 700; letter-spacing: .06em; }
+.status .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 24px; }
+.hints { margin: 14px 2px 0; color: var(--muted); font-family: var(--ui); font-size: 12px; font-weight: 500; line-height: 1.8; }
+kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); color: var(--text); }
+@media (max-width: 720px) {
+  .head, .row { grid-template-columns: 36px 80px minmax(0, 1fr); }
+  .head > :nth-child(2), .head > :nth-child(4), .row > :nth-child(2), .row > :nth-child(4), .keyhint { display: none; }
+}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Explorer — propuesta técnica</h1>
+      <p>Misma maqueta, otra identidad: listado tipo <code>ls -l</code>, teclado estilo vim, todo monoespaciado.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Tema">
+      <button data-theme-btn="system" aria-pressed="true">Sistema</button>
+      <button data-theme-btn="light" aria-pressed="false">Claro</button>
+      <button data-theme-btn="dark" aria-pressed="false">Oscuro</button>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="pathline" id="pathline" tabindex="0" aria-label="Ruta actual">
+      <div class="nav">
+        <button id="back" aria-label="Atrás" title="Atrás (Alt+←)">←</button>
+        <button id="fwd" aria-label="Adelante" title="Adelante (Alt+→)">→</button>
+        <button id="up" aria-label="Subir una carpeta" title="Subir (h)">↑</button>
+      </div>
+      <span class="prompt">❯</span>
+      <div class="crumbs" id="crumbs"></div>
+      <span class="keyhint">i editar ruta</span>
+    </div>
+    <div class="head">
+      <span>#</span>
+      <span>permisos</span>
+      <button class="col" data-key="size">tamaño</button>
+      <button class="col" data-key="mtime">modificado</button>
+      <button class="col" data-key="name">nombre</button>
+    </div>
+    <div class="list" id="list" tabindex="0" role="listbox" aria-label="Archivos"></div>
+    <div class="status">
+      <span class="mode">NORMAL</span>
+      <span class="grow" id="info"></span>
+      <span id="pos"></span>
+      <span id="total"></span>
+    </div>
+  </div>
+
+  <p class="hints">
+    <kbd>j</kbd> <kbd>k</kbd> mover · <kbd>l</kbd>/<kbd>Enter</kbd> entrar · <kbd>h</kbd>/<kbd>Backspace</kbd> subir · <kbd>gg</kbd> <kbd>G</kbd> primera y última · <kbd>i</kbd> escribir ruta · doble clic también entra.
+    Los números de la izquierda son relativos a la fila activa, como en vim. Prueba <kbd>~/Privado</kbd> y <kbd>~/nada</kbd> en la ruta para ver los errores.
+  </p>
+</div>
+
+<script>
+const HOME = "/home/sebastian";
+const D = (n, t, m) => ({ n, f: true, t: t || "2026-11-10 09:14", m: m || "drwxr-xr-x" });
+const F = (n, k, s, t) => ({ n, k, s, t, m: "-rw-r--r--" });
+const FS = {
+  "/": [D("home"), D("etc"), D("usr"), D("var"), D("tmp", "2026-11-16 08:00", "drwxrwxrwt")],
+  "/home": [D("sebastian")],
+  [HOME]: [
+    D(".config", "2026-11-12 10:31"), D("Desktop", "2026-11-16 09:07"), D("Documentos", "2026-11-02 18:40"), D("Descargas", "2026-11-14 21:03"),
+    D("Imágenes", "2026-10-28 12:15"), D("Música", "2026-09-30 08:00"), D("proyectos", "2026-11-12 16:22"), D("Privado", "2026-08-01 10:00", "drwx------"),
+    F(".bashrc", "file", 3771, "2026-06-02 12:00"), F("notas.txt", "doc", 2150, "2026-11-15 22:10"), F("curriculum.pdf", "doc", 184320, "2026-10-04 11:30"),
+  ],
+  [HOME + "/Desktop"]: [
+    D("Explorer", "2026-11-16 09:07"), D("exporer-vc", "2026-11-16 08:21"),
+    F("captura.png", "image", 482311, "2026-11-15 19:44"), F("ideas.md", "code", 3890, "2026-11-13 10:02"),
+  ],
+  [HOME + "/Desktop/Explorer"]: [
+    D("core", "2026-11-16 09:30"), D("app", "2026-11-16 09:30"),
+    F("Cargo.toml", "code", 412, "2026-11-16 09:31"), F("README.md", "code", 1280, "2026-11-16 09:35"),
+  ],
+  [HOME + "/Desktop/Explorer/core"]: [D("src"), F("Cargo.toml", "code", 238, "2026-11-16 09:31")],
+  [HOME + "/Desktop/Explorer/core/src"]: [F("lib.rs", "code", 920, "2026-11-16 09:40"), F("entry.rs", "code", 2410, "2026-11-16 09:44"), F("error.rs", "code", 760, "2026-11-16 09:46")],
+  [HOME + "/Descargas"]: [
+    F("ubuntu-26.04.iso", "archive", 6254387200, "2026-11-14 21:03"), F("factura-nov.pdf", "doc", 96210, "2026-11-09 08:12"),
+    F("tutorial-gpui.mp4", "media", 218400000, "2026-11-11 20:30"), F("fondo.jpg", "image", 2310044, "2026-11-08 17:20"),
+    F("exporer-0.1.tar.gz", "archive", 5312000, "2026-11-07 13:00"),
+  ],
+  [HOME + "/Imágenes"]: [F("playa.jpg", "image", 3401220, "2026-07-21 15:10"), F("logo.svg", "image", 4120, "2026-09-02 09:00"), F("perfil.png", "image", 220331, "2026-10-12 19:35")],
+  [HOME + "/Música"]: [F("mix-noche.mp3", "media", 9120400, "2026-09-30 08:00"), F("intro.flac", "media", 31420000, "2026-06-18 14:00")],
+};
+const DENIED = new Set([HOME + "/Privado"]);
+
+const $ = (s) => document.querySelector(s);
+const st = { cwd: HOME + "/Desktop", back: [], fwd: [], sort: { key: "name", dir: 1 }, sel: 0, err: null, editing: false, g: false };
+
+const exists = (p) => {
+  if (p === "/") return true;
+  const i = p.lastIndexOf("/"), parent = p.slice(0, i) || "/", name = p.slice(i + 1);
+  return (FS[parent] || []).some((e) => e.f && e.n === name);
+};
+const join = (a, b) => (a === "/" ? "/" + b : a + "/" + b);
+const parentOf = (p) => (p === "/" ? "/" : p.slice(0, p.lastIndexOf("/")) || "/");
+const shown = (p) => (p === HOME || p.startsWith(HOME + "/") ? "~" + p.slice(HOME.length) : p);
+function resolve(text) {
+  let t = text.trim();
+  if (t === "~" || t.startsWith("~/")) t = HOME + t.slice(1);
+  else if (!t.startsWith("/")) t = join(st.cwd, t);
+  const out = [];
+  for (const s of t.split("/")) { if (!s || s === ".") continue; s === ".." ? out.pop() : out.push(s); }
+  return "/" + out.join("/");
+}
+function fmtSize(n) {
+  if (n < 1024) return n + " B";
+  const u = ["KiB", "MiB", "GiB"]; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < 2);
+  return (n >= 100 ? n.toFixed(0) : n.toFixed(1)) + " " + u[i];
+}
+const kindOf = (e) => (e.f ? "dir" : e.k);
+
+function entries() {
+  const cmp = {
+    name: (a, b) => a.n.localeCompare(b.n, "es", { sensitivity: "base", numeric: true }),
+    mtime: (a, b) => a.t.localeCompare(b.t),
+    size: (a, b) => (a.s || 0) - (b.s || 0),
+  }[st.sort.key];
+  return [...(FS[st.cwd] || [])].sort((a, b) => (b.f - a.f) || cmp(a, b) * st.sort.dir);
+}
+
+function go(path, push = true) {
+  st.err = null;
+  if (!exists(path)) { st.err = { title: "ENOENT", msg: "No existe: " + shown(path) }; render(); return; }
+  if (DENIED.has(path)) { st.err = { title: "EACCES", msg: "Permiso denegado: " + shown(path) }; render(); return; }
+  if (push && path !== st.cwd) { st.back.push(st.cwd); st.fwd = []; }
+  st.cwd = path; st.sel = 0; render();
+}
+const goBack = () => { if (st.back.length) { st.fwd.push(st.cwd); go(st.back.pop(), false); } };
+const goFwd = () => { if (st.fwd.length) { st.back.push(st.cwd); go(st.fwd.pop(), false); } };
+const goUp = () => { const from = st.cwd.slice(st.cwd.lastIndexOf("/") + 1); go(parentOf(st.cwd)); const i = entries().findIndex((e) => e.n === from); if (i >= 0) { st.sel = i; render(); } };
+
+function renderPath() {
+  const box = $("#crumbs"); box.replaceChildren();
+  if (st.editing) {
+    const inp = document.createElement("input");
+    inp.value = shown(st.cwd); inp.setAttribute("aria-label", "Escribir ruta"); inp.spellcheck = false;
+    inp.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") { st.editing = false; go(resolve(inp.value)); $("#list").focus(); }
+      if (e.key === "Escape") { st.editing = false; renderPath(); $("#list").focus(); }
+    };
+    inp.onblur = () => { if (st.editing) { st.editing = false; renderPath(); } };
+    box.append(inp); inp.focus(); inp.select(); return;
+  }
+  const segs = []; let acc = "";
+  if (st.cwd === HOME || st.cwd.startsWith(HOME + "/")) {
+    segs.push(["~", HOME]); acc = HOME;
+    st.cwd.slice(HOME.length).split("/").filter(Boolean).forEach((s) => { acc = join(acc, s); segs.push([s, acc]); });
+  } else {
+    segs.push(["/", "/"]);
+    st.cwd.split("/").filter(Boolean).forEach((s) => { acc = join(acc, s); segs.push([s, acc]); });
+  }
+  segs.forEach(([label, p], i) => {
+    if (i && segs[i - 1][0] !== "/") { const s = document.createElement("span"); s.className = "sep"; s.textContent = "/"; box.append(s); }
+    const b = document.createElement("button"); b.className = "seg-btn"; b.textContent = label;
+    b.onclick = (e) => { e.stopPropagation(); go(p); };
+    box.append(b);
+  });
+}
+
+function render() {
+  renderPath();
+  $("#back").disabled = !st.back.length; $("#fwd").disabled = !st.fwd.length; $("#up").disabled = st.cwd === "/";
+  document.querySelectorAll(".col").forEach((c) => {
+    c.removeAttribute("aria-sort");
+    if (c.dataset.key === st.sort.key) c.setAttribute("aria-sort", st.sort.dir === 1 ? "ascending" : "descending");
+  });
+  const list = $("#list"); list.replaceChildren();
+  const items = entries();
+  if (st.err) {
+    const d = document.createElement("div"); d.className = "state";
+    d.innerHTML = "<b></b><br><span></span>";
+    d.querySelector("b").textContent = "error[" + st.err.title + "]";
+    d.querySelector("span").textContent = st.err.msg + " — te quedas en " + shown(st.cwd);
+    list.append(d);
+  } else if (!items.length) {
+    const d = document.createElement("div"); d.className = "state empty";
+    d.innerHTML = "<b>carpeta vacía</b><br>0 entradas"; list.append(d);
+  }
+  if (!st.err) items.forEach((e, i) => {
+    const r = document.createElement("div"); r.className = "row"; r.setAttribute("role", "option");
+    r.setAttribute("aria-selected", String(i === st.sel));
+    r.innerHTML = '<span class="ln"></span><span class="perm"></span><span class="size"></span><span class="time"></span><span class="nm"></span>';
+    r.children[0].textContent = i === st.sel ? String(i + 1) : String(Math.abs(i - st.sel));
+    r.children[1].textContent = e.m;
+    r.children[2].textContent = e.f ? "—" : fmtSize(e.s);
+    r.children[3].textContent = e.t;
+    const nm = r.children[4]; nm.textContent = e.n + (e.f ? "/" : "");
+    nm.className = "nm k-" + kindOf(e) + (e.n.startsWith(".") ? " hidden-file" : "");
+    r.onclick = () => { st.sel = i; render(); };
+    r.ondblclick = () => { if (e.f) go(join(st.cwd, e.n)); };
+    list.append(r);
+  });
+  const s = st.err ? null : items[st.sel];
+  $("#info").textContent = s ? s.m + "  " + (s.f ? "dir" : s.s.toLocaleString("es") + " B") + "  " + s.n : (st.err ? st.err.title : "");
+  $("#pos").textContent = items.length ? (st.sel + 1) + "/" + items.length : "0/0";
+  const sum = items.reduce((a, e) => a + (e.s || 0), 0);
+  $("#total").textContent = "Σ " + fmtSize(sum) + " · UTF-8";
+  const cur = document.querySelector('.row[aria-selected="true"]'); if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+
+function move(to) { const n = entries().length; if (n) { st.sel = Math.max(0, Math.min(n - 1, to)); render(); } }
+function edit() { st.editing = true; renderPath(); }
+const open = () => { const e = entries()[st.sel]; if (e && e.f) go(join(st.cwd, e.n)); };
+
+$("#back").onclick = (e) => { e.stopPropagation(); goBack(); };
+$("#fwd").onclick = (e) => { e.stopPropagation(); goFwd(); };
+$("#up").onclick = (e) => { e.stopPropagation(); goUp(); };
+$("#pathline").onclick = () => { if (!st.editing) edit(); };
+document.querySelectorAll(".col").forEach((c) => c.onclick = () => {
+  const k = c.dataset.key;
+  st.sort = st.sort.key === k ? { key: k, dir: -st.sort.dir } : { key: k, dir: 1 };
+  st.sel = 0; render();
+});
+document.addEventListener("keydown", (e) => {
+  if (st.editing || e.ctrlKey || e.metaKey) return;
+  if (e.target.closest && e.target.closest(".seg")) return;
+  const k = e.key;
+  if (e.altKey && k === "ArrowLeft") return goBack();
+  if (e.altKey && k === "ArrowRight") return goFwd();
+  if (k === "g") { if (st.g) { st.g = false; move(0); } else { st.g = true; setTimeout(() => st.g = false, 600); } return; }
+  st.g = false;
+  if (k === "j" || k === "ArrowDown") { e.preventDefault(); move(st.sel + 1); }
+  else if (k === "k" || k === "ArrowUp") { e.preventDefault(); move(st.sel - 1); }
+  else if (k === "G") move(1e9);
+  else if (k === "l" || k === "ArrowRight" || (k === "Enter" && document.activeElement === $("#list"))) { e.preventDefault(); open(); }
+  else if (k === "h" || k === "Backspace" || k === "ArrowLeft") { e.preventDefault(); goUp(); }
+  else if (k === "i") { e.preventDefault(); edit(); }
+});
+document.querySelectorAll("[data-theme-btn]").forEach((b) => b.onclick = () => {
+  const v = b.dataset.themeBtn, r = document.documentElement;
+  v === "system" ? r.removeAttribute("data-theme") : r.setAttribute("data-theme", v);
+  document.querySelectorAll("[data-theme-btn]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+});
+go(st.cwd, false);
+</script>
