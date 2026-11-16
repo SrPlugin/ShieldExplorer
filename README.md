@@ -4,7 +4,8 @@ A file explorer for Linux written in Rust with [GPUI](https://www.gpui.rs/), the
 UI framework behind the [Zed](https://zed.dev) editor. It is built for **developers and technical
 users** who want to move fast **without touching the mouse**. It has two keyboard modes you can
 switch between at any time: a **standard explorer mode** and a **vim mode**. The look is
-terminal-like, with the information that matters in plain sight (permissions, exact size, date).
+terminal-like, with the information that matters in plain sight (permissions, exact size, date, git
+status).
 
 > **Vibe-coded project.** I'm building this with the help of AI, for fun, to have a file explorer
 > made to my own taste. A human decides what gets built and tests it; the code is written by an AI.
@@ -15,56 +16,79 @@ terminal-like, with the information that matters in plain sight (permissions, ex
 
 ## Status
 
-Early version. It is already good for **browsing and finding things in folders**. It does **not**
-yet open files, or copy, move, delete or rename them (see the [roadmap](#roadmap)).
+Early but already usable day to day: browse, preview, search, open files, and copy, move, delete,
+rename and create them. It does **not** yet have a dual pane, a side tree, or browsable archives
+(see the [roadmap](#roadmap)).
 
-The logic (`shieldexplorer-core`) has automated tests. The UI is tested by hand: keys, clicks and
-path editing have no automated tests yet.
+The logic (`shieldexplorer-core`, 69 tests) and the configuration parser are covered by automated
+tests. The UI is tested by hand: I could check by running it that the listing, preview, git marks and
+automatic refresh work, but most keybindings and clicks have no automated tests yet, so expect rough
+edges.
 
-## What it does today
+## What it does
 
 - **Two keyboard modes**, switched with `Ctrl+Shift+M` or by clicking the mode label in the status
-  bar. Your choice is remembered between sessions. See [Keybindings](#keybindings).
-- **Detailed listing** in the style of `ls -l`: permissions (`drwxr-xr-x`), size, modification date
-  and name. Folders come first and end in `/`; symbolic links end in `@`.
-- **Relative line numbers**, like vim's `relativenumber`, so a jump like `5j` is exact. The active
-  row shows its absolute position.
-- **Search**: `/` with incremental matching and `n`/`N` in vim mode; just start typing to jump to a
-  name in explorer mode.
-- **Sort by column** (name, size, date), ascending or descending, with natural ordering (`f2`
-  before `f10`) and case-insensitive names.
-- **Show or hide hidden files** on the fly.
-- **Virtualized list**: only the visible rows are drawn, so a huge folder does not slow the window.
-- **Background loading**: the window never freezes while reading the disk. If you navigate quickly,
-  stale loads are discarded.
-- **Path bar** with clickable segments and an edit mode (accepts `~`, `.`, `..` and relative paths).
-- **Back and forward history.**
-- **Errors that don't break anything**: a folder without permission or a missing one shows
-  `error[EACCES]` or `error[ENOENT]`, and you stay where you were.
-- **Light and dark theme** that follows the system and switches on its own.
-- **Status bar** with the mode, a pending count, the active file's permissions and exact byte size,
-  its position, and the folder total.
+  bar. The choice is remembered. See [Keybindings](#keybindings).
+- **Detailed listing** in the style of `ls -l`: permissions, size, date and name. Folders come
+  first and end in `/`; symbolic links end in `@` and show where they point (`→ target`).
+- **Preview pane** on the right that follows the selection: the contents of a folder, the first
+  lines of a text file, an image, or the size of a binary. `Tab` shows or hides it.
+- **Git status**: a mark per file (`M` `A` `R` `D` `U` `?`), folders show the most serious mark of
+  what they contain, and the branch (with `*` if dirty, and `↑`/`↓` ahead and behind) sits in the
+  status bar.
+- **Live updates**: the open folder refreshes by itself when files are created, deleted or renamed
+  elsewhere, keeping your cursor and selection.
+- **File operations**: copy, cut, paste, delete to the trash, rename, create files and folders, and
+  **undo**, with multi-select (visual mode or marks). Nothing is overwritten, and deleted files go
+  to the freedesktop trash so they can be restored.
+- **Open things**: `Enter` opens a file with the system default (`xdg-open`), another key opens it in
+  `$EDITOR` (inside a terminal if the editor needs one), and another opens a terminal in the folder.
+- **Fuzzy finder** (`Ctrl+P`): jump to any file in the project, respecting `.gitignore`. A second
+  finder (`Ctrl+O`) jumps to frequently visited folders, like zoxide.
+- **Command line** (`:`) with `cd`, `mkdir`, `rename`, `sort`, `z`, `yank`... and `:!command` to run
+  a shell command in the folder, with live, cancelable output.
+- **Marks**: save a folder under a letter and jump back to it.
+- **Disks**: see your mounted drives with used and free space, and jump into any of them. The trash
+  is one key away.
+- **Real folder sizes**: computed in the background, in parallel, on demand.
+- **Search and navigation**: `/` with incremental matching in vim mode, type-to-jump in explorer
+  mode, counts like `5j`, sorting by name, size or date, and show/hide hidden files.
+- **Tabs**.
+- **Fast**: virtualized list, all disk work off the UI thread, stale loads discarded, and the fuzzy
+  search spread over all CPU cores.
+- **Light and dark theme** that follows the system. Colors, columns and keybindings can be changed in
+  a [config file](#configuration).
 
 ## Keybindings
 
-Switch mode with `Ctrl+Shift+M` (or click the mode label in the status bar). The default is
-**explorer** mode. Quit with `Ctrl+Q`.
+Switch mode with `Ctrl+Shift+M`. The default is **explorer** mode. Quit with `Ctrl+Q`.
 
 ### Vim mode
 
-| Key                         | Action                                                              |
-| --------------------------- | ------------------------------------------------------------------- |
-| `j` / `k` (or `↓` / `↑`)    | Move down / up. A number first repeats it: `5j`, `12k`              |
-| `l` / `→` / `Enter`         | Open the selected folder                                            |
-| `h` / `←` / `Backspace`     | Go to the parent folder (the cursor lands on the one you left)      |
-| `gg` / `G`                  | First / last row. With a number, go to that row: `5gg`, `5G`        |
-| `Ctrl+D` / `Ctrl+U`         | Half a page down / up                                               |
-| `PageDown` / `PageUp`       | A full page down / up                                               |
-| `/`                         | Search by name as you type. `Enter` keeps it, `Esc` cancels         |
-| `n` / `N`                   | Next / previous match (`3n` repeats)                                |
-| `.`                         | Show or hide hidden files                                           |
-| `i`                         | Edit the path                                                       |
-| `Esc`                       | Clear a pending number, or dismiss an error                         |
+| Key                         | Action                                                               |
+| --------------------------- | -------------------------------------------------------------------- |
+| `j` / `k` (or `↓` / `↑`)    | Move down / up. A number first repeats it: `5j`, `12k`               |
+| `l` / `→` / `Enter`         | Open the folder, or open the file with the default program           |
+| `h` / `←` / `Backspace`     | Go to the parent folder (the cursor lands on the one you left)       |
+| `gg` / `G`                  | First / last row. With a number, go to that row: `5gg`, `5G`         |
+| `Ctrl+D` / `Ctrl+U`         | Half a page down / up                                                |
+| `/`, `n`, `N`               | Search by name as you type; next / previous match (`3n` repeats)     |
+| `v`, `Space`                | Visual selection; mark or unmark the current row                     |
+| `yy`, `dd`, `p`             | Copy, cut, paste                                                     |
+| `x`                         | Delete to the trash (undo with `u`)                                  |
+| `r`, `a`, `A`               | Rename, new file, new folder                                         |
+| `u`                         | Undo the last operation                                              |
+| `yp`, `yn`, `yr`            | Copy to the clipboard the absolute path, the name, or the relative path |
+| `e`, `o`, `t`               | Open in `$EDITOR`, open with the default program, open a terminal here |
+| `:`                         | Command line                                                         |
+| `m` + letter, `'` + letter  | Save the folder under that letter, jump to it                        |
+| `s`                         | Compute the real size of every folder                                |
+| `gd`, `gt`, `gh`, `gz`      | Disks, trash folder, home, frequent folders                          |
+| `.`                         | Show or hide hidden files                                            |
+| `i`                         | Edit the path                                                        |
+| `[` / `]`                   | Previous / next tab                                                  |
+| `Ctrl+C`                    | Cancel the running `:!` command                                      |
+| `Esc`                       | Clear a pending number, a selection, a message, or the output panel  |
 
 Searching is "smartcase", as in vim: lowercase matches any case, and a capital letter makes it
 case-sensitive.
@@ -74,57 +98,107 @@ case-sensitive.
 | Key                    | Action                                                              |
 | ---------------------- | ------------------------------------------------------------------- |
 | `↓` / `↑`              | Move down / up                                                      |
-| `Enter`                | Open the selected folder                                            |
+| `Enter`                | Open the folder, or open the file with the default program          |
 | `Backspace` / `Alt+↑`  | Go to the parent folder                                             |
-| `Home` / `End`         | First / last row                                                    |
-| `PageDown` / `PageUp`  | A full page down / up                                               |
 | *typing letters*       | Jump to the entry whose name starts with what you type              |
+| `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy, cut, paste                                            |
+| `Delete`               | Delete to the trash                                                 |
+| `F2`, `Ctrl+N`, `Ctrl+Shift+N` | Rename, new file, new folder                                |
+| `Ctrl+Z`               | Undo the last operation                                             |
+| `Ctrl+A`, `Insert`, `Shift+↑/↓` | Select all, mark the current row, extend the selection     |
+| `Ctrl+Shift+C`         | Copy the absolute path to the clipboard                             |
+| `Ctrl+E`, `F12`        | Open in `$EDITOR`, open a terminal here                             |
+| `Ctrl+D`               | Disks                                                               |
+| `Ctrl+Shift+P`         | Command line                                                        |
+| `Ctrl+Shift+S`         | Compute the real size of every folder                               |
 | `Ctrl+H`               | Show or hide hidden files                                           |
 | `Ctrl+L` / `F4`        | Edit the path                                                       |
-| `Esc`                  | Dismiss an error                                                    |
 
 ### In both modes
 
-| Key                 | Action                                  |
-| ------------------- | --------------------------------------- |
-| `Alt+←` / `Alt+→`   | Back / forward in history               |
-| `F5`                | Reload the folder                       |
-| `Ctrl+Shift+M`      | Switch between vim and explorer mode    |
-| `Ctrl+Q`            | Quit                                    |
+| Key                          | Action                                         |
+| ---------------------------- | ---------------------------------------------- |
+| `Home` / `End`, `PageUp` / `PageDown` | First / last row, a page up / down    |
+| `Alt+←` / `Alt+→`            | Back / forward in history                      |
+| `Tab`                        | Show or hide the preview pane                  |
+| `Ctrl+P`                     | Fuzzy finder for files in the project          |
+| `Ctrl+O`                     | Fuzzy finder for frequently visited folders    |
+| `Ctrl+Shift+T`, `Ctrl+W`     | New tab, close tab                             |
+| `Ctrl+Tab`, `Ctrl+Shift+Tab` | Next / previous tab                            |
+| `F5`                         | Reload the folder                              |
+| `Esc`                        | Dismiss an error, a selection or a message     |
+| `Ctrl+Shift+M`               | Switch between vim and explorer mode           |
+| `Ctrl+Q`                     | Quit                                           |
 
-### While editing the path or searching
+In the path field, the search, the command line and the finders: `Enter` confirms and `Esc` cancels.
+Move with `←` `→` `Home` `End`, delete with `Backspace` and `Delete`, and paste with `Ctrl+V`. In the
+finders, `↑`/`↓` (or `Ctrl+P`/`Ctrl+N`) choose a result.
 
-`Enter` confirms and `Esc` cancels. Move with `←` `→` `Home` `End`, delete with `Backspace` and
-`Delete`, and paste with `Ctrl+V`.
+### Command line
+
+`:cd [path]`, `:mkdir name`, `:touch name`, `:rename name`, `:rm` (to the trash), `:trash` (open the
+trash folder), `:open`, `:edit`, `:term`, `:hidden`, `:sort name|size|date [r]`, `:mode
+vim|explorer`, `:mark a`, `:jump a`, `:z query`, `:yank path|name|rel`, `:du`, `:undo`, `:reload`,
+`:disks`, `:tabnew`, `:tabclose`, `:preview`, `:q`, and `:!command`, where `%s` becomes the selected
+name, already quoted.
 
 ### Mouse (optional)
 
-Click selects, double-click opens a folder, clicking a column header sorts, clicking a path segment
-jumps to that level, the wheel scrolls the list, and clicking the mode label switches the mode.
+Click selects, double-click opens, clicking a column header sorts, clicking a path segment jumps to
+that level, the wheel scrolls, the tabs are clickable, and clicking the mode label switches the mode.
 
 ## Configuration
 
-The only setting for now is the keyboard mode, saved to `~/.config/shieldexplorer/config`
-(or `$XDG_CONFIG_HOME/shieldexplorer/config`) as a line like `mode=vim`.
+`~/.config/shieldexplorer/config` (or `$XDG_CONFIG_HOME/shieldexplorer/config`) is a plain text file
+of `key = value` lines. Everything is optional, and lines it cannot understand are ignored with a
+warning on stderr.
+
+```text
+mode = vim                       # vim | explorer (also saved when you switch)
+show_hidden = true
+preview = true
+theme = system                   # system | light | dark
+columns = perms, modified, git   # optional columns; size and name are always shown
+bind vim ctrl-x = cut            # bind <vim|explorer|all> <keys> = <action>
+bind all g x = disks             # several keys in a row are allowed
+color dark accent = #ff8800      # color <dark|light> <name> = #rrggbb
+```
+
+Actions for `bind`: `move_down` `move_up` `page_down` `page_up` `half_down` `half_up` `first` `last`
+`open` `open_default` `edit` `terminal` `parent` `back` `forward` `home` `trash_folder` `edit_path`
+`hidden` `reload` `mode` `preview` `sizes` `search` `search_next` `search_prev` `command` `mark`
+`jump` `copy` `cut` `paste` `delete` `rename` `new_file` `new_dir` `undo` `visual` `toggle_mark`
+`select_all` `yank_path` `yank_name` `yank_rel` `finder` `folders` `disks` `cancel_command` `tab_new`
+`tab_close` `tab_next` `tab_prev` `quit`. Color names: `bg` `bar` `border` `text` `muted` `faint`
+`cursor` `marked` `accent` `on_accent` `danger` `dir` `image` `code` `doc` `media` `archive`.
+
+Marks and visited folders are remembered in `~/.local/state/shieldexplorer/memory`.
 
 ## Safety and robustness
 
-- `unsafe_code` is **forbidden** in the project's own code (dependencies do use it).
-- It does not run shell commands or open files.
+- `unsafe_code` is **forbidden** in the project's own code (dependencies do use it), and there is
+  no `unwrap`, `expect` or `panic!` in it. Errors are typed.
+- It only starts other programs when you ask: opening a file (`xdg-open`), the editor, a terminal, or
+  a `:!` command. Programs are started without a shell, except `:!`, which is a shell command by
+  design. For its own needs it calls `git`, `df` and `kill`.
+- Nothing is overwritten: copies and moves pick a free name, and deleting sends to the trash, which
+  can be undone. Names with `..` or absolute paths are refused when creating.
 - File names are treated as what they are on Linux: bytes that need not be valid UTF-8.
-- No `unwrap`, `expect` or `panic!` in the code; errors are typed.
-- Symbolic links are shown as links and broken ones are flagged. There is no recursive traversal,
-  so there is no risk of loops.
+- Symbolic links are shown as links and broken ones are flagged. Folder sizes do not follow links, and
+  there is no recursive traversal in the listing, so there is no risk of loops.
+- The trash is the one in your home directory. Deleting something on another drive copies it there
+  first, which can be slow for big files.
 
 ## Building and running
 
 You need:
 
-- Rust with edition 2024 support (1.85 or later). Tested with 1.92.
+- Rust with edition 2024 support (1.88 or later, for `let` chains). Tested with 1.92.
 - Linux with Wayland or X11 and a graphics driver with Vulkan.
 - Development headers for xkbcommon, Wayland, xcb and fontconfig. On the development machine
   (Ubuntu) these are installed: `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libwayland-dev`,
   `libxcb1-dev` and `libfontconfig-dev`. If the build fails on a missing library, start there.
+- Optional, for the features that use them: `git`, `xdg-open`, and a terminal emulator.
 
 ```sh
 # Open in the current folder, or in the one you pass
@@ -152,8 +226,11 @@ The first build is slow because GPUI pulls in many dependencies.
 ```
 ShieldExplorer/
 ├── crates/
-│   ├── shieldexplorer-core/   UI-free logic: read folders, sorting, search, history, paths, formatting
-│   └── shieldexplorer-app/    GPUI window: state, list, path bar, status bar, theme, key modes
+│   ├── shieldexplorer-core/   UI-free logic: folders, sorting, search, file operations, trash, git,
+│   │                          disks, fuzzy finder, preview, command parser, shell runner
+│   └── shieldexplorer-app/    GPUI app
+│       └── src/ state/        listing, selection, operations, prompts, overlays, tabs (one file each)
+│           └── ui/            path bar, list, preview, overlays, output panel, tabs, status bar
 ├── assets/fonts/              JetBrains Mono (OFL license)
 └── docs/images/               screenshots
 ```
@@ -163,21 +240,19 @@ so the logic can be tested without opening a window.
 
 `gpui` is pinned to `=0.2.2` because its API is 0.x and changes between releases. `Cargo.lock`
 starts from the one published with that version: with a recent `libc`, `xattr 0.2.3` does not
-compile.
+compile. Other dependencies: `ignore` (walk files respecting `.gitignore`), `notify` (live
+refresh), `jiff` (dates), `thiserror`, `anyhow` and `futures`.
 
 ## Roadmap
 
-No dates and no promises, ordered by what best fits the keyboard-first, productivity-minded focus:
+No dates and no promises:
 
-1. **More vim:** a `:` command line, marks, `H`/`M`/`L`, and `.` to repeat.
-2. **Keyboard file operations:** copy (`yy`), cut, paste (`p`), delete to trash, rename, create
-   files and folders, visual selection (`v`).
-3. **Hooks into the dev environment:** open with the default program or `$EDITOR`, copy the path to
-   the clipboard, open a terminal in the folder.
-4. **Fast fuzzy search** in the spirit of fzf that respects `.gitignore`, plus folder bookmarks.
-5. **More context for devs:** git status in the listing and a preview of text files.
-6. **Configuration:** custom keybindings and colors.
-7. Side tree and tabs.
+1. **Dual pane** and a **side tree**, in the style of ranger or mc.
+2. **Browse archives** (zip, tar) as if they were folders.
+3. **More vim:** `H`/`M`/`L`, `.` to repeat, and registers.
+4. **Rename in bulk** and a bulk-edit buffer.
+5. **Automated UI tests** with GPUI's test harness, and CI.
+6. Release binaries (`.deb`, AppImage) and an English/Spanish interface (labels are Spanish today).
 
 ## Credits
 
