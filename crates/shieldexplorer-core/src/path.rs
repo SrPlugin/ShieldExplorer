@@ -33,11 +33,46 @@ pub fn display_path(path: &Path, home: Option<&Path>) -> String {
     }
 }
 
+/// Segmentos de la ruta para la barra: etiqueta y ruta completa de cada nivel. Empieza en `~`
+/// si la ruta está dentro del directorio personal, y en `/` si no.
+pub fn breadcrumbs(path: &Path, home: Option<&Path>) -> Vec<(String, PathBuf)> {
+    let (mut acc, rest, first) = match home.and_then(|h| path.strip_prefix(h).ok().map(|r| (h, r)))
+    {
+        Some((home, rest)) => (home.to_path_buf(), rest, "~".to_owned()),
+        None => (
+            PathBuf::from("/"),
+            path.strip_prefix("/").unwrap_or(path),
+            "/".to_owned(),
+        ),
+    };
+    let mut out = vec![(first, acc.clone())];
+    for part in rest.components() {
+        acc.push(part);
+        out.push((part.as_os_str().to_string_lossy().into_owned(), acc.clone()));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const HOME: &str = "/home/u";
+
+    #[test]
+    fn builds_breadcrumbs() {
+        let home = Some(Path::new(HOME));
+        let crumbs = breadcrumbs(Path::new("/home/u/a/b"), home);
+        let labels: Vec<_> = crumbs.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, ["~", "a", "b"]);
+        assert_eq!(crumbs[2].1, Path::new("/home/u/a/b"));
+        assert_eq!(crumbs[0].1, Path::new("/home/u"));
+
+        let crumbs = breadcrumbs(Path::new("/etc/ssh"), home);
+        let labels: Vec<_> = crumbs.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, ["/", "etc", "ssh"]);
+        assert_eq!(breadcrumbs(Path::new("/"), None).len(), 1);
+    }
 
     fn r(input: &str) -> PathBuf {
         resolve(input, Path::new("/home/u/Desktop"), Some(Path::new(HOME)))

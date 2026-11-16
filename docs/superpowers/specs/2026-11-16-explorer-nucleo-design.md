@@ -107,7 +107,7 @@ seleccionado si sigue existiendo.
 - Un error de carga (`EACCES`, `ENOENT`, `ENOTDIR`) se muestra dentro de la lista como
   `error[EACCES]` con la ruta, y el usuario **se queda en la carpeta anterior**. La app no se cierra.
 - Enlaces simbólicos: se muestran como enlaces (`l…`, sufijo `@`). Los rotos se pintan con el color
-  de error. Entrar en un enlace a carpeta navega a su destino. No hay recorrido recursivo en v1,
+  de error. Entrar en un enlace a carpeta navega por la ruta del enlace, sin resolverlo. No hay recorrido recursivo en v1,
   así que no hay riesgo de bucles.
 - No se ejecuta ningún comando de shell ni se abre ningún archivo en v1.
 
@@ -185,8 +185,8 @@ Todo en **JetBrains Mono**, 12,5 px, filas de 24 px.
 ## 9. Dependencias previstas
 
 `gpui =0.2.2` (con el `Cargo.lock` publicado para esa versión: con `libc` reciente `xattr` no
-compila), `jiff` (fecha en hora local), `unicode-segmentation` (campo de la ruta, mover por
-grafema), `thiserror` (errores) y `tempfile` (solo tests). Cualquier otra dependencia debe
+compila), `jiff` (fecha en hora local), `anyhow` (carga de fuentes de GPUI), `thiserror` (errores) y
+`tempfile` (solo tests). El campo de la ruta mueve el cursor por carácter, sin dependencias. Cualquier otra dependencia debe
 justificarse. El plan de implementación verificará que las versiones encajan con el lockfile fijado.
 
 ## 10. Orden de construcción

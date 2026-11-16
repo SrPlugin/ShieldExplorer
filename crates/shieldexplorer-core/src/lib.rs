@@ -13,6 +13,6 @@ pub use entry::{Class, Entry, Kind, LinkTarget};
 pub use error::FsError;
 pub use format::{format_size, mode_string};
 pub use history::History;
-pub use path::{display_path, resolve};
+pub use path::{breadcrumbs, display_path, resolve};
 pub use read::{Listing, read_dir};
 pub use sort::{Sort, SortKey, sort_entries};
