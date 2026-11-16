@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Se consulta el destino con `peek_*` y solo se confirma con `went_*`/`visit` cuando la carga
 /// tuvo éxito, así una carpeta ilegible no hace perder el historial.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct History {
     back: Vec<PathBuf>,
     forward: Vec<PathBuf>,

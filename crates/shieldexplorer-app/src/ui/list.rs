@@ -16,8 +16,21 @@ const W_LINE: f32 = 44.;
 const W_PERMS: f32 = 92.;
 const W_SIZE: f32 = 84.;
 const W_TIME: f32 = 142.;
+const W_GIT: f32 = 24.;
 
 impl Explorer {
+    fn show_perms(&self, narrow: bool) -> bool {
+        !narrow && self.columns.perms
+    }
+
+    fn show_time(&self, narrow: bool) -> bool {
+        !narrow && self.columns.modified
+    }
+
+    fn show_git(&self) -> bool {
+        self.columns.git && self.git.is_some()
+    }
+
     pub(super) fn render_header(
         &self,
         t: &Theme,
@@ -39,7 +52,7 @@ impl Explorer {
                     .text_color(t.faint)
                     .child("#"),
             )
-            .when(!narrow, |row| {
+            .when(self.show_perms(narrow), |row| {
                 row.child(
                     div()
                         .w(px(W_PERMS))
@@ -53,11 +66,14 @@ impl Explorer {
                     .w(px(W_SIZE))
                     .justify_end(),
             )
-            .when(!narrow, |row| {
+            .when(self.show_time(narrow), |row| {
                 row.child(
                     self.sort_cell("sort-time", SortKey::Modified, "MODIFICADO", t, cx)
                         .w(px(W_TIME)),
                 )
+            })
+            .when(self.show_git(), |row| {
+                row.child(div().w(px(W_GIT)).text_color(t.faint).child("G"))
             })
             .child(
                 self.sort_cell("sort-name", SortKey::Name, "NOMBRE", t, cx)
@@ -130,8 +146,22 @@ impl Explorer {
         )
     }
 
-    fn shown_cwd(&self) -> String {
-        shieldexplorer_core::display_path(&self.cwd, self.home.as_deref())
+    fn size_text(&self, ix: usize) -> String {
+        let Some(entry) = self.entries.get(ix) else {
+            return String::new();
+        };
+        if entry.kind == Kind::Dir {
+            return match self.dir_sizes.get(&entry.name) {
+                Some(&size) => format_size(size),
+                None if self.sizing => "…".to_owned(),
+                None => "—".to_owned(),
+            };
+        }
+        if entry.is_dir() {
+            "—".to_owned()
+        } else {
+            format_size(entry.size)
+        }
     }
 
     fn render_row(&self, ix: usize, t: &Theme, narrow: bool, cx: &Context<Self>) -> Stateful<Div> {
@@ -145,6 +175,7 @@ impl Explorer {
             return row;
         };
         let selected = ix == self.selected;
+        let marked = self.marked.contains(&entry.name);
 
         let mut name = entry.name.to_string_lossy().into_owned();
         match entry.kind {
@@ -157,13 +188,36 @@ impl Explorer {
         } else {
             ix.abs_diff(self.selected).to_string()
         };
-        let size = if entry.is_dir() {
-            "—".to_owned()
-        } else {
-            format_size(entry.size)
-        };
         let class = entry.class();
         let hover = t.cursor;
+        let git_mark = self
+            .git
+            .as_ref()
+            .and_then(|g| g.marks.get(&entry.name))
+            .copied();
+
+        let mut name_cell = div()
+            .flex_1()
+            .min_w_0()
+            .px(px(8.))
+            .flex()
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .when(entry.is_hidden(), |c| c.opacity(0.55))
+            .child(
+                div()
+                    .text_color(t.class_color(class))
+                    .when(class == Class::Dir, |c| c.font_weight(FontWeight::BOLD))
+                    .child(name),
+            );
+        if let Some(target) = &entry.link {
+            name_cell = name_cell.child(
+                div()
+                    .ml(px(8.))
+                    .text_color(t.faint)
+                    .child(format!("→ {}", target.display())),
+            );
+        }
 
         row.border_l_2()
             .border_color(if selected {
@@ -171,8 +225,9 @@ impl Explorer {
             } else {
                 transparent_black()
             })
+            .when(marked, |r| r.bg(t.marked))
             .when(selected, |r| r.bg(t.cursor))
-            .when(!selected, |r| r.hover(move |s| s.bg(hover)))
+            .when(!selected && !marked, |r| r.hover(move |s| s.bg(hover)))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 window.focus(&this.focus);
                 this.select(ix, cx);
@@ -184,13 +239,17 @@ impl Explorer {
                 div()
                     .w(px(W_LINE - 2.))
                     .px(px(8.))
-                    .when(selected, |c| {
+                    .when(selected || marked, |c| {
                         c.text_color(t.accent).font_weight(FontWeight::BOLD)
                     })
-                    .when(!selected, |c| c.text_color(t.faint).text_right())
-                    .child(line),
+                    .when(!selected && !marked, |c| c.text_color(t.faint).text_right())
+                    .child(if marked && !selected {
+                        "●".to_owned()
+                    } else {
+                        line
+                    }),
             )
-            .when(!narrow, |r| {
+            .when(self.show_perms(narrow), |r| {
                 r.child(
                     div()
                         .w(px(W_PERMS))
@@ -205,9 +264,9 @@ impl Explorer {
                     .px(px(8.))
                     .text_color(t.muted)
                     .text_right()
-                    .child(size),
+                    .child(self.size_text(ix)),
             )
-            .when(!narrow, |r| {
+            .when(self.show_time(narrow), |r| {
                 r.child(
                     div()
                         .w(px(W_TIME))
@@ -216,17 +275,16 @@ impl Explorer {
                         .child(self.format_modified(entry.modified)),
                 )
             })
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .px(px(8.))
-                    .truncate()
-                    .text_color(t.class_color(class))
-                    .when(class == Class::Dir, |c| c.font_weight(FontWeight::BOLD))
-                    .when(entry.is_hidden(), |c| c.opacity(0.55))
-                    .child(name),
-            )
+            .when(self.show_git(), |r| {
+                r.child(div().w(px(W_GIT)).font_weight(FontWeight::BOLD).when_some(
+                    git_mark,
+                    |c, mark| {
+                        c.text_color(t.git_color(mark))
+                            .child(mark.symbol().to_string())
+                    },
+                ))
+            })
+            .child(name_cell)
     }
 }
 

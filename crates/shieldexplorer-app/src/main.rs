@@ -2,6 +2,7 @@
 
 mod assets;
 mod config;
+mod dirs;
 mod keys;
 mod line_edit;
 mod state;
@@ -17,7 +18,7 @@ use gpui::{
 
 use crate::keys::Quit;
 use crate::state::Explorer;
-use crate::theme::Theme;
+use crate::theme::{Theme, ThemeSettings};
 
 /// Carpeta inicial: el argumento si es una carpeta (o la carpeta de un archivo, que queda
 /// seleccionado), si no la carpeta actual.
@@ -42,13 +43,19 @@ fn start_location() -> (PathBuf, Option<OsString>) {
 
 fn main() {
     let (start, select) = start_location();
-    let mode = config::load_mode();
+    let (config, mut warnings) = config::load();
     Application::new().run(move |cx: &mut App| {
         if let Err(error) = assets::load_fonts(cx) {
             eprintln!("shieldexplorer: no se pudieron cargar las fuentes: {error:#}");
         }
-        cx.set_global(Theme::for_appearance(cx.window_appearance()));
+        let settings = ThemeSettings::from_config(&config);
+        cx.set_global(Theme::resolve(cx.window_appearance(), &settings));
+        cx.set_global(settings);
         keys::bind(cx);
+        warnings.extend(keys::bind_user(cx, &config.binds));
+        for warning in &warnings {
+            eprintln!("shieldexplorer: configuración: {warning}");
+        }
         cx.on_action(|_: &Quit, cx| cx.quit());
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
@@ -72,11 +79,12 @@ fn main() {
             // Sigue el modo claro/oscuro del sistema mientras la app está abierta.
             window
                 .observe_window_appearance(|window, cx| {
-                    cx.set_global(Theme::for_appearance(window.appearance()));
+                    let theme = Theme::resolve(window.appearance(), cx.global::<ThemeSettings>());
+                    cx.set_global(theme);
                     window.refresh();
                 })
                 .detach();
-            cx.new(|cx| Explorer::new(start, select, mode, window, cx))
+            cx.new(|cx| Explorer::new(start, select, &config, window, cx))
         });
         if let Err(error) = opened {
             eprintln!("shieldexplorer: no se pudo abrir la ventana: {error:#}");

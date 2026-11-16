@@ -17,7 +17,7 @@ struct Visits {
     last: u64,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Memory {
     marks: BTreeMap<char, PathBuf>,
     folders: HashMap<PathBuf, Visits>,

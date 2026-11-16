@@ -11,7 +11,12 @@ use crate::state::Explorer;
 use crate::theme::Theme;
 
 impl Explorer {
-    pub(super) fn render_pathbar(&self, t: &Theme, cx: &Context<Self>) -> impl IntoElement {
+    pub(super) fn render_pathbar(
+        &self,
+        t: &Theme,
+        width: f32,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
         let can_up = self.cwd.parent().is_some();
         div()
             .key_context(PATH_CONTEXT)
@@ -64,7 +69,7 @@ impl Explorer {
                     .font_weight(gpui::FontWeight::BOLD)
                     .child("❯"),
             )
-            .child(self.render_path_field(t, cx))
+            .child(self.render_path_field(t, width, cx))
             .when(self.editing.is_none(), |bar| {
                 let hint = match self.mode {
                     KeyMode::Vim => "i editar ruta · / buscar",
@@ -74,7 +79,7 @@ impl Explorer {
             })
     }
 
-    fn render_path_field(&self, t: &Theme, cx: &Context<Self>) -> Stateful<Div> {
+    fn render_path_field(&self, t: &Theme, width: f32, cx: &Context<Self>) -> Stateful<Div> {
         let field = div()
             .id("path-field")
             .flex_1()
@@ -95,11 +100,41 @@ impl Explorer {
             .items_center()
             .overflow_hidden()
             .whitespace_nowrap();
+        let all = breadcrumbs(&self.cwd, self.home.as_deref());
+        // Si la ruta no cabe, se abrevia el principio y se deja visible el final. Se reserva sitio
+        // para los botones y la pista, a unos 7,6 px por carácter.
+        let budget = (((width - 330.) / 7.6).max(12.)) as usize;
+        let mut used = 0;
+        let mut first = all.len();
+        for (i, (label, _)) in all.iter().enumerate().rev() {
+            let cost = label.chars().count() + 1;
+            if used + cost > budget && first < all.len() {
+                break;
+            }
+            used += cost;
+            first = i;
+        }
+        let hidden_parent = (first > 0).then(|| all[first - 1].1.clone());
         let mut after_root = true; // sin separador antes del primer segmento ni tras `/`
-        for (i, (label, path)) in breadcrumbs(&self.cwd, self.home.as_deref())
-            .into_iter()
-            .enumerate()
-        {
+        if let Some(parent) = hidden_parent {
+            let hover = t.cursor;
+            crumbs = crumbs.child(
+                div()
+                    .id("crumb-hidden")
+                    .px(px(3.))
+                    .rounded(px(3.))
+                    .cursor_pointer()
+                    .text_color(t.faint)
+                    .hover(move |s| s.bg(hover))
+                    .child("…")
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        cx.stop_propagation();
+                        this.go_to(parent.clone(), cx);
+                    })),
+            );
+            after_root = false;
+        }
+        for (i, (label, path)) in all.into_iter().enumerate().skip(first) {
             if !after_root {
                 crumbs = crumbs.child(div().text_color(t.faint).child("/"));
             }
