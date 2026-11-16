@@ -11,7 +11,7 @@ use shieldexplorer_core::{Class, Kind, SortKey, format_size, mode_string};
 use crate::state::Explorer;
 use crate::theme::Theme;
 
-const ROW_HEIGHT: f32 = 24.;
+pub(super) const ROW_HEIGHT: f32 = 24.;
 const W_LINE: f32 = 44.;
 const W_PERMS: f32 = 92.;
 const W_SIZE: f32 = 84.;

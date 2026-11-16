@@ -1,8 +1,9 @@
 //! ShieldExplorer: un explorador de archivos para Linux hecho con GPUI.
 
 mod assets;
+mod config;
 mod keys;
-mod path_edit;
+mod line_edit;
 mod state;
 mod theme;
 mod ui;
@@ -41,6 +42,7 @@ fn start_location() -> (PathBuf, Option<OsString>) {
 
 fn main() {
     let (start, select) = start_location();
+    let mode = config::load_mode();
     Application::new().run(move |cx: &mut App| {
         if let Err(error) = assets::load_fonts(cx) {
             eprintln!("shieldexplorer: no se pudieron cargar las fuentes: {error:#}");
@@ -74,7 +76,7 @@ fn main() {
                     window.refresh();
                 })
                 .detach();
-            cx.new(|cx| Explorer::new(start, select, window, cx))
+            cx.new(|cx| Explorer::new(start, select, mode, window, cx))
         });
         if let Err(error) = opened {
             eprintln!("shieldexplorer: no se pudo abrir la ventana: {error:#}");

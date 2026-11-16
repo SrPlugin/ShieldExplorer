@@ -1,16 +1,16 @@
-//! Campo de texto de una línea para la ruta. Sin dependencia de GPUI para poder probarlo.
+//! Campo de texto de una línea (ruta y búsqueda). Sin dependencia de GPUI para poder probarlo.
 //!
 //! ponytail: mueve el cursor por carácter (no por grafema), sin selección ni IME. Subir a
 //! `unicode-segmentation` si hiciera falta.
 
 #[derive(Debug)]
-pub struct PathEdit {
+pub struct LineEdit {
     text: String,
     /// Posición del cursor en bytes, siempre en el límite de un carácter.
     cursor: usize,
 }
 
-impl PathEdit {
+impl LineEdit {
     pub fn new(text: String) -> Self {
         let cursor = text.len();
         Self { text, cursor }
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn edits_at_the_cursor() {
-        let mut e = PathEdit::new("~/ab".into());
+        let mut e = LineEdit::new("~/ab".into());
         e.left();
         e.insert("X");
         assert_eq!((e.text(), e.cursor()), ("~/aXb", 4));
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn handles_multibyte_characters() {
-        let mut e = PathEdit::new("ñá".into());
+        let mut e = LineEdit::new("ñá".into());
         e.left();
         assert_eq!(e.cursor(), 2);
         e.backspace();
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn edge_moves_do_not_panic() {
-        let mut e = PathEdit::new(String::new());
+        let mut e = LineEdit::new(String::new());
         e.left();
         e.right();
         e.backspace();

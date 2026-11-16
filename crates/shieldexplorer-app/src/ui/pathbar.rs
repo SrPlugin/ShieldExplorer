@@ -5,6 +5,7 @@ use gpui::{
 };
 use shieldexplorer_core::breadcrumbs;
 
+use crate::config::KeyMode;
 use crate::keys::PATH_CONTEXT;
 use crate::state::Explorer;
 use crate::theme::Theme;
@@ -65,12 +66,11 @@ impl Explorer {
             )
             .child(self.render_path_field(t, cx))
             .when(self.editing.is_none(), |bar| {
-                bar.child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(t.faint)
-                        .child("i editar ruta"),
-                )
+                let hint = match self.mode {
+                    KeyMode::Vim => "i editar ruta · / buscar",
+                    KeyMode::Explorer => "Ctrl+L editar ruta",
+                };
+                bar.child(div().text_size(px(11.)).text_color(t.faint).child(hint))
             })
     }
 
