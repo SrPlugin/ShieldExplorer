@@ -385,7 +385,7 @@ mod tests {
         let dest = tmp.path().join("dest");
         fs::create_dir(&dest).unwrap();
 
-        let created = paste_copy(&[src.clone()], &dest).unwrap();
+        let created = paste_copy(std::slice::from_ref(&src), &dest).unwrap();
         assert_eq!(created, [dest.join("src")]);
         assert_eq!(
             fs::read_to_string(dest.join("src/sub/f.txt")).unwrap(),
@@ -404,8 +404,8 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("a");
         fs::create_dir_all(src.join("b")).unwrap();
-        assert!(paste_copy(&[src.clone()], &src.join("b")).is_err());
-        assert!(paste_move(&[src.clone()], &src.join("b")).is_err());
+        assert!(paste_copy(std::slice::from_ref(&src), &src.join("b")).is_err());
+        assert!(paste_move(std::slice::from_ref(&src), &src.join("b")).is_err());
     }
 
     #[test]
