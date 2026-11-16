@@ -1,0 +1,19 @@
+[package]
+name = "explorer-app"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "explorer"
+path = "src/main.rs"
+
+[dependencies]
+explorer-core = { path = "../explorer-core" }
+anyhow = "1"
+# Fijado: la API de GPUI es 0.x y cambia entre versiones. El Cargo.lock parte del publicado con
+# gpui 0.2.2 (con libc >= 0.2.191, xattr 0.2.3 no compila).
+gpui = "=0.2.2"
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
+
+[lints]
+workspace = true
