@@ -65,6 +65,7 @@ mod tests {
                 size: 0,
                 modified: None,
                 mode: 0,
+                link: None,
             })
             .collect()
     }

@@ -51,6 +51,10 @@ fn entry_of(item: &DirEntry) -> io::Result<Entry> {
         size: meta.len(),
         modified: meta.modified().ok(),
         mode: meta.mode(),
+        link: meta
+            .is_symlink()
+            .then(|| fs::read_link(item.path()).ok())
+            .flatten(),
     })
 }
 

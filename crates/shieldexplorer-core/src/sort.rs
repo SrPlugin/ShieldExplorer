@@ -114,6 +114,7 @@ mod tests {
             size,
             modified: Some(UNIX_EPOCH + Duration::from_secs(secs)),
             mode: 0,
+            link: None,
         }
     }
 

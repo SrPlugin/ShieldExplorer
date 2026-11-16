@@ -10,6 +10,8 @@ path = "src/main.rs"
 [dependencies]
 shieldexplorer-core = { path = "../shieldexplorer-core" }
 anyhow = "1"
+notify = { version = "8", default-features = false }
+futures = "0.3"
 # Fijado: la API de GPUI es 0.x y cambia entre versiones. El Cargo.lock parte del publicado con
 # gpui 0.2.2 (con libc >= 0.2.191, xattr 0.2.3 no compila).
 gpui = "=0.2.2"

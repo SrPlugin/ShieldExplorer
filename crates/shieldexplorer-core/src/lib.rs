@@ -5,6 +5,7 @@ mod entry;
 mod error;
 mod format;
 mod history;
+mod ops;
 mod path;
 mod read;
 mod search;
@@ -14,6 +15,10 @@ pub use entry::{Class, Entry, Kind, LinkTarget};
 pub use error::FsError;
 pub use format::{format_size, mode_string};
 pub use history::History;
+pub use ops::{
+    OpError, Trashed, Undo, copy_recursive, create_dir, create_file, paste_copy, paste_move,
+    read_trash_info, rename, restore, trash, undo, unique_path,
+};
 pub use path::{breadcrumbs, display_path, resolve};
 pub use read::{Listing, read_dir};
 pub use search::{find_match, find_prefix};

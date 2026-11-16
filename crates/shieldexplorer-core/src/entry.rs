@@ -1,5 +1,5 @@
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 /// A qué apunta un enlace simbólico.
@@ -39,6 +39,8 @@ pub struct Entry {
     pub modified: Option<SystemTime>,
     /// Bits de `st_mode`, incluido el tipo de archivo.
     pub mode: u32,
+    /// Destino del enlace simbólico, tal como está escrito en el enlace.
+    pub link: Option<PathBuf>,
 }
 
 impl Entry {
@@ -92,6 +94,7 @@ mod tests {
             size: 0,
             modified: None,
             mode: 0o100644,
+            link: None,
         }
     }
 
