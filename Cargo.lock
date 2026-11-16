@@ -1471,24 +1471,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "explorer-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "explorer-core",
- "gpui",
- "jiff",
-]
-
-[[package]]
-name = "explorer-core"
-version = "0.1.0"
-dependencies = [
- "tempfile",
- "thiserror 2.0.17",
-]
-
-[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4661,6 +4643,24 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shieldexplorer-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gpui",
+ "jiff",
+ "shieldexplorer-core",
+]
+
+[[package]]
+name = "shieldexplorer-core"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

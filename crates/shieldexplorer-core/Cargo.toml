@@ -1,5 +1,5 @@
 [package]
-name = "explorer-core"
+name = "shieldexplorer-core"
 version.workspace = true
 edition.workspace = true
 

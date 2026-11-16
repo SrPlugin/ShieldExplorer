@@ -1,4 +1,4 @@
-# Explorer — Núcleo (v1): diseño
+# ShieldExplorer — Núcleo (v1): diseño
 
 Fecha: 2026-11-16 · Estado: pendiente de revisión
 
@@ -43,30 +43,30 @@ en disco, archivos ocultos conmutables (en v1 se muestran siempre, atenuados), i
 ## 3. Arquitectura
 
 Workspace de Cargo con dos crates. La dependencia va en un solo sentido: **`app` usa
-`explorer-core`, nunca al revés.** `explorer-core` no conoce GPUI.
+`shieldexplorer-core`, nunca al revés.** `shieldexplorer-core` no conoce GPUI.
 
 ```
-Explorer/
+ShieldExplorer/
 ├── Cargo.toml              workspace, lints, perfil release
 ├── Cargo.lock              partido del lockfile publicado con gpui 0.2.2
 ├── crates/
-│   ├── explorer-core/      lógica pura, sin GPUI
+│   ├── shieldexplorer-core/      lógica pura, sin GPUI
 │   │   └── src/ lib.rs  entry.rs  read.rs  error.rs  history.rs  sort.rs  path.rs
-│   └── explorer-app/       ventana GPUI
+│   └── shieldexplorer-app/       ventana GPUI
 │       └── src/ main.rs  state.rs  theme.rs  assets.rs  ui/{toolbar,pathbar,list,statusbar}.rs
 ├── assets/fonts/           JetBrains Mono (licencia OFL incluida)
 └── docs/superpowers/specs/
 ```
 
-El crate no se llama `core` porque chocaría con la biblioteca `core` de Rust.
+El crate no se llama `core` porque chocaría con la biblioteca `core` de Rust. El proyecto se llama ShieldExplorer y el binario `shieldexplorer`.
 
-### explorer-core (responsabilidades)
+### shieldexplorer-core (responsabilidades)
 
 - `entry`: `Entry { name: OsString, kind: Kind, size: u64, modified: Option<SystemTime>, mode: u32 }`
   con `Kind { Dir, File, Symlink { broken: bool } }` y una clasificación por extensión
   (imagen, código, documento, audio/vídeo, archivo comprimido) usada solo para colorear.
 - `read`: `read_dir(&Path) -> Result<Vec<Entry>, FsError>`. Una entrada ilegible no tumba el
-  listado: se devuelve marcada.
+  listado: se omite y se cuenta (`Listing.unreadable`), y la barra de estado avisa.
 - `error`: `FsError { NotFound, PermissionDenied, NotADirectory, Io(io::Error) }`, con el código
   de Linux asociado (`ENOENT`, `EACCES`, `ENOTDIR`) para mostrarlo.
 - `history`: pila atrás/adelante.
@@ -74,9 +74,9 @@ El crate no se llama `core` porque chocaría con la biblioteca `core` de Rust.
   comparación insensible a mayúsculas y numérica.
 - `path`: `resolve(input, cwd, home) -> PathBuf` normaliza `~`, `.`, `..` y rutas relativas.
 
-### explorer-app (responsabilidades)
+### shieldexplorer-app (responsabilidades)
 
-- `state`: modelo GPUI que envuelve la lógica de `explorer-core`. Guarda carpeta actual, listado,
+- `state`: modelo GPUI que envuelve la lógica de `shieldexplorer-core`. Guarda carpeta actual, listado,
   historial, orden, fila seleccionada, error vigente y el número de la carga en curso.
 - `ui`: `toolbar` (atrás/adelante/subir), `pathbar` (prompt + segmentos + edición), `list`
   (encabezados + filas virtualizadas con `uniform_list`), `statusbar`.
@@ -172,11 +172,11 @@ Todo en **JetBrains Mono**, 12,5 px, filas de 24 px.
 
 ## 8. Pruebas y calidad
 
-- **`explorer-core`:** tests unitarios de `read_dir` (con `tempfile` como dev-dependency),
+- **`shieldexplorer-core`:** tests unitarios de `read_dir` (con `tempfile` como dev-dependency),
   errores, ordenado, historial y `resolve`. Se cubren: nombres no UTF-8, enlace roto, carpeta
   sin permiso, carpeta vacía, y orden carpetas-primero.
-- **`explorer-app`:** la lógica con decisiones (descarte de cargas obsoletas, selección tras
-  subir/recargar) vive en tipos sin GPUI dentro de `explorer-core` o en funciones puras, para
+- **`shieldexplorer-app`:** la lógica con decisiones (descarte de cargas obsoletas, selección tras
+  subir/recargar) vive en tipos sin GPUI dentro de `shieldexplorer-core` o en funciones puras, para
   poder probarla sin abrir ventana.
 - **Puertas de calidad:** `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`
   (más los lints `unwrap_used`/`expect_used`/`panic`) y `cargo test`, en cada paso.
@@ -193,8 +193,8 @@ justificarse. El plan de implementación verificará que las versiones encajan c
 
 1. Workspace, lockfile, lints y perfil de release.
 2. Ventana GPUI vacía: valida que compila y renderiza en esta máquina (Vulkan).
-3. `explorer-core`: `Entry`, `read_dir`, `FsError`, con tests.
-4. `explorer-core`: orden, historial, `resolve`, con tests.
+3. `shieldexplorer-core`: `Entry`, `read_dir`, `FsError`, con tests.
+4. `shieldexplorer-core`: orden, historial, `resolve`, con tests.
 5. `state` y carga en segundo plano con descarte de cargas obsoletas.
 6. `ui`: lista virtualizada, encabezados, barra de estado.
 7. `ui`: línea de ruta y edición.
@@ -204,5 +204,5 @@ justificarse. El plan de implementación verificará que las versiones encajan c
 ## 11. Fuera de este documento
 
 Los sub-proyectos 2–6 (operaciones, árbol lateral, pestañas, búsqueda/atajos, vista previa) tendrán
-cada uno su propio diseño. Este diseño no los anticipa más allá de mantener `explorer-core` sin
+cada uno su propio diseño. Este diseño no los anticipa más allá de mantener `shieldexplorer-core` sin
 GPUI y la lista de columnas como datos.

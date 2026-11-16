@@ -12,7 +12,10 @@ fn main() {
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1100.), px(700.)), cx);
         let opened = cx.open_window(
-            WindowOptions { window_bounds: Some(WindowBounds::Windowed(bounds)), ..Default::default() },
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                ..Default::default()
+            },
             |_, cx| cx.new(|_| Empty),
         );
         if opened.is_err() {
